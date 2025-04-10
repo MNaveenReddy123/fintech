@@ -8,6 +8,11 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, CheckCircle, XCircle, Clock, Award, AlertTriangle } from "lucide-react"
 
+// Add imports at the top
+import { useAuth } from "@/contexts/auth-context"
+import { saveActivityProgress } from "@/actions/user-actions"
+import { toast } from "@/components/ui/use-toast"
+
 // Quiz questions
 const questions = [
   {
@@ -143,6 +148,8 @@ const questions = [
 ]
 
 export default function BudgetingQuizPage() {
+  // Add auth context
+  const { userData, refreshUserData } = useAuth()
   const [quizState, setQuizState] = useState("start") // start, playing, result
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [selectedAnswers, setSelectedAnswers] = useState({})
@@ -159,6 +166,38 @@ export default function BudgetingQuizPage() {
     setTimerActive(true)
   }
 
+  // Add a function to save quiz results
+  const saveQuizResults = async () => {
+    if (!userData) return
+
+    const score = calculateScore()
+    const coinsEarned = Math.round((score / questions.length) * 20)
+    const xpEarned = Math.round((score / questions.length) * 30)
+
+    try {
+      const result = await saveActivityProgress(userData.id, "quiz", "Budgeting Basics", score, xpEarned, coinsEarned)
+
+      if (result.success) {
+        // Update the user's coins in the context
+        await refreshUserData()
+
+        toast({
+          title: "Quiz Completed!",
+          description: `You earned ${xpEarned} XP and ${coinsEarned} Coins!`,
+          variant: "default",
+        })
+      }
+    } catch (error) {
+      console.error("Error saving quiz progress:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save your progress. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Modify the handleAnswerSelect function to save results when quiz is completed
   const handleAnswerSelect = (questionId, answerId) => {
     if (selectedAnswers[questionId]) return // Prevent changing answer
 
@@ -177,6 +216,8 @@ export default function BudgetingQuizPage() {
       } else {
         setQuizState("result")
         setTimerActive(false)
+        // Save quiz results when completed
+        saveQuizResults()
       }
     }, 2000)
   }

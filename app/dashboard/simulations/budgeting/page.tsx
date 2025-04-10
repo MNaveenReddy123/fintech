@@ -21,6 +21,9 @@ import {
   Briefcase,
   Award,
 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { saveActivityProgress } from "@/actions/user-actions"
+import { toast } from "@/components/ui/use-toast"
 
 export default function BudgetingSimulationPage() {
   const [step, setStep] = useState(1)
@@ -38,6 +41,8 @@ export default function BudgetingSimulationPage() {
 
   const totalExpenses = Object.values(expenses).reduce((sum, value) => sum + value, 0)
   const balance = income - totalExpenses
+
+  const { userData, refreshUserData } = useAuth()
 
   const handleExpenseChange = (category, value) => {
     setExpenses({ ...expenses, [category]: value })
@@ -57,9 +62,52 @@ export default function BudgetingSimulationPage() {
     }
   }
 
+  const saveSimulationResults = async () => {
+    if (!userData) return
+
+    // Calculate score based on balance and budget quality
+    const balanceScore = balance >= 0 ? 50 : 0
+    const savingsScore = expenses.savings >= 300 ? 30 : Math.floor(expenses.savings / 10)
+    const totalScore = balanceScore + savingsScore
+
+    // Calculate rewards
+    const xpEarned = 30
+    const coinsEarned = 20
+
+    try {
+      const result = await saveActivityProgress(
+        userData.id,
+        "simulation",
+        "Budgeting Basics",
+        totalScore,
+        xpEarned,
+        coinsEarned,
+      )
+
+      if (result.success) {
+        // Update the user's coins in the context
+        await refreshUserData()
+
+        toast({
+          title: "Simulation Completed!",
+          description: `You earned ${xpEarned} XP and ${coinsEarned} Coins!`,
+          variant: "default",
+        })
+      }
+    } catch (error) {
+      console.error("Error saving simulation progress:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save your progress. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleComplete = () => {
     // In a real app, we would save the results to the user's profile
     setCompleted(true)
+    saveSimulationResults()
   }
 
   return (

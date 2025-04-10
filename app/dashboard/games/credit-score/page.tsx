@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, CreditCard, Award, Heart, AlertTriangle, CheckCircle, XCircle } from "lucide-react"
+import { toast } from "@/components/ui/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 
 // Game scenarios
 const scenarios = [
@@ -176,6 +178,8 @@ export default function CreditScoreGamePage() {
   const [selectedOption, setSelectedOption] = useState(null)
   const [feedback, setFeedback] = useState(null)
   const [gameCompleted, setGameCompleted] = useState(false)
+  const { userData, refreshUserData, saveActivityProgress } = useAuth()
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleStart = () => {
     setGameState("playing")
@@ -242,6 +246,50 @@ export default function CreditScoreGamePage() {
     if (score >= 670) return { xp: 35, coins: 25 }
     if (score >= 580) return { xp: 25, coins: 15 }
     return { xp: 15, coins: 10 }
+  }
+
+  // Update the handleGameEnd function to use the updateUserCoins function from the auth context
+  const handleGameEnd = async () => {
+    if (!userData) return
+
+    // Calculate final score
+    const finalScore = Math.round(score)
+
+    // Calculate rewards based on performance
+    const xpEarned = getReward().xp
+    const coinsEarned = getReward().coins
+
+    try {
+      setIsSubmitting(true)
+      const result = await saveActivityProgress(
+        userData.id,
+        "game",
+        "Credit Score Adventure",
+        finalScore,
+        xpEarned,
+        coinsEarned,
+      )
+
+      if (result.success) {
+        // Update the user's coins in the context
+        await refreshUserData()
+
+        toast({
+          title: "Game Completed!",
+          description: `You earned ${xpEarned} XP and ${coinsEarned} Coins!`,
+          variant: "default",
+        })
+      }
+    } catch (error) {
+      console.error("Error saving game progress:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save your progress. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (

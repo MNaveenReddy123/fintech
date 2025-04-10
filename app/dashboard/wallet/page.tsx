@@ -1,9 +1,83 @@
+"use client"
+
+import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowDown, ArrowUp, Wallet, TrendingUp, Clock, CreditCard } from "lucide-react"
+import { ArrowDown, ArrowUp, Wallet, TrendingUp, Clock, CreditCard, Loader2, AlertCircle } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { getUserTransactions } from "@/actions/user-actions"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function WalletPage() {
+  const { userData, refreshUserData } = useAuth()
+  const [transactions, setTransactions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const isMounted = useRef(true)
+  const hasLoadedData = useRef(false)
+
+  useEffect(() => {
+    // Set up cleanup function
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      // Only fetch if we haven't loaded data yet or if userData changes
+      if (!userData || hasLoadedData.current) return
+
+      setLoading(true)
+      try {
+        const result = await getUserTransactions(userData.id, 20)
+        if (result.success && isMounted.current) {
+          setTransactions(result.data)
+          hasLoadedData.current = true
+        } else if (isMounted.current) {
+          setError("Failed to load transaction history")
+        }
+      } catch (err) {
+        console.error("Error fetching transactions:", err)
+        if (isMounted.current) {
+          setError("An unexpected error occurred")
+        }
+      } finally {
+        if (isMounted.current) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchTransactions()
+  }, [userData])
+
+  // Refresh user data only once when component mounts
+  useEffect(() => {
+    if (userData) {
+      refreshUserData().catch((err) => {
+        console.error("Error refreshing user data:", err)
+      })
+    }
+  }, [userData, refreshUserData])
+
+  if (!userData) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading wallet data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Calculate total earned and spent
+  const totalEarned = transactions.reduce((sum, tx) => (tx.coins_earned > 0 ? sum + tx.coins_earned : sum), 0)
+
+  const totalSpent = userData.coins > 0 ? totalEarned - userData.coins : 0
+
   return (
     <div className="flex flex-col">
       <div className="flex-1 space-y-4 p-8 pt-6">
@@ -12,10 +86,18 @@ export default function WalletPage() {
           <div className="flex items-center space-x-2">
             <Button>
               <Wallet className="mr-2 h-4 w-4" />
-              <span>500 Coins</span>
+              <span>{userData.coins} Coins</span>
             </Button>
           </div>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -30,8 +112,12 @@ export default function WalletPage() {
                   <Wallet className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">500 Coins</div>
-                  <p className="text-xs text-muted-foreground">+50 earned today</p>
+                  <div className="text-2xl font-bold">{userData.coins} Coins</div>
+                  <p className="text-xs text-muted-foreground">
+                    {transactions.length > 0 && transactions[0]?.coins_earned > 0
+                      ? `+${transactions[0].coins_earned} earned recently`
+                      : "Complete activities to earn coins"}
+                  </p>
                 </CardContent>
               </Card>
               <Card>
@@ -40,7 +126,7 @@ export default function WalletPage() {
                   <ArrowUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">750 Coins</div>
+                  <div className="text-2xl font-bold">{totalEarned} Coins</div>
                   <p className="text-xs text-muted-foreground">Since you started</p>
                 </CardContent>
               </Card>
@@ -50,7 +136,7 @@ export default function WalletPage() {
                   <ArrowDown className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">250 Coins</div>
+                  <div className="text-2xl font-bold">{totalSpent} Coins</div>
                   <p className="text-xs text-muted-foreground">On rewards and upgrades</p>
                 </CardContent>
               </Card>
@@ -60,7 +146,9 @@ export default function WalletPage() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">66%</div>
+                  <div className="text-2xl font-bold">
+                    {totalEarned > 0 ? Math.round((userData.coins / totalEarned) * 100) : 0}%
+                  </div>
                   <p className="text-xs text-muted-foreground">Of total earnings saved</p>
                 </CardContent>
               </Card>
@@ -71,51 +159,52 @@ export default function WalletPage() {
                 <CardDescription>Your latest wallet activity</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-primary/10 p-2">
-                      <ArrowUp className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Completed "Budgeting Basics" Quiz</p>
-                      <p className="text-xs text-muted-foreground">Earned for quiz completion</p>
-                    </div>
-                    <div className="text-sm font-medium text-primary">+20 Coins</div>
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="ml-2">Loading transactions...</span>
                   </div>
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-primary/10 p-2">
-                      <ArrowUp className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Played "Credit Score Adventure"</p>
-                      <p className="text-xs text-muted-foreground">Earned for completing level 2</p>
-                    </div>
-                    <div className="text-sm font-medium text-primary">+15 Coins</div>
+                ) : transactions.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No transactions yet. Start playing games, taking quizzes, or trying simulations!
                   </div>
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-destructive/10 p-2">
-                      <ArrowDown className="h-4 w-4 text-destructive" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Purchased "Investor" Badge</p>
-                      <p className="text-xs text-muted-foreground">Special achievement badge</p>
-                    </div>
-                    <div className="text-sm font-medium text-destructive">-50 Coins</div>
+                ) : (
+                  <div className="space-y-4">
+                    {transactions.slice(0, 4).map((tx) => (
+                      <div key={tx.id} className="flex items-center">
+                        <div className="mr-4 rounded-full bg-primary/10 p-2">
+                          {tx.coins_earned > 0 ? (
+                            <ArrowUp className="h-4 w-4 text-primary" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4 text-destructive" />
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-medium leading-none">
+                            {tx.activity_type === "quiz" && "Completed "}
+                            {tx.activity_type === "game" && "Played "}
+                            {tx.activity_type === "simulation" && "Completed "}"{tx.activity_name}"
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {tx.activity_type === "quiz"
+                              ? "Earned for quiz completion"
+                              : tx.activity_type === "game"
+                                ? "Earned from gameplay"
+                                : "Earned for simulation completion"}
+                          </p>
+                        </div>
+                        <div className="text-sm font-medium text-primary">+{tx.coins_earned} Coins</div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-primary/10 p-2">
-                      <ArrowUp className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Daily Login Bonus</p>
-                      <p className="text-xs text-muted-foreground">5-day streak bonus</p>
-                    </div>
-                    <div className="text-sm font-medium text-primary">+25 Coins</div>
-                  </div>
-                </div>
+                )}
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => document.querySelector('[data-value="transactions"]')?.click()}
+                >
                   View All Transactions
                 </Button>
               </CardFooter>
@@ -128,71 +217,49 @@ export default function WalletPage() {
                 <CardDescription>All your wallet activity</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-primary/10 p-2">
-                      <ArrowUp className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Completed "Budgeting Basics" Quiz</p>
-                      <p className="text-xs text-muted-foreground">Today at 2:30 PM</p>
-                    </div>
-                    <div className="text-sm font-medium text-primary">+20 Coins</div>
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="ml-2">Loading transactions...</span>
                   </div>
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-primary/10 p-2">
-                      <ArrowUp className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Played "Credit Score Adventure"</p>
-                      <p className="text-xs text-muted-foreground">Today at 11:45 AM</p>
-                    </div>
-                    <div className="text-sm font-medium text-primary">+15 Coins</div>
+                ) : transactions.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No transactions yet. Start playing games, taking quizzes, or trying simulations!
                   </div>
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-destructive/10 p-2">
-                      <ArrowDown className="h-4 w-4 text-destructive" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Purchased "Investor" Badge</p>
-                      <p className="text-xs text-muted-foreground">Today at 10:15 AM</p>
-                    </div>
-                    <div className="text-sm font-medium text-destructive">-50 Coins</div>
+                ) : (
+                  <div className="space-y-4">
+                    {transactions.map((tx) => (
+                      <div key={tx.id} className="flex items-center">
+                        <div className="mr-4 rounded-full bg-primary/10 p-2">
+                          {tx.coins_earned > 0 ? (
+                            <ArrowUp className="h-4 w-4 text-primary" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4 text-destructive" />
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-medium leading-none">
+                            {tx.activity_type === "quiz" && "Completed "}
+                            {tx.activity_type === "game" && "Played "}
+                            {tx.activity_type === "simulation" && "Completed "}"{tx.activity_name}"
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(tx.created_at).toLocaleString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                        <div className="text-sm font-medium text-primary">+{tx.coins_earned} Coins</div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-primary/10 p-2">
-                      <ArrowUp className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Daily Login Bonus</p>
-                      <p className="text-xs text-muted-foreground">Today at 9:00 AM</p>
-                    </div>
-                    <div className="text-sm font-medium text-primary">+25 Coins</div>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-primary/10 p-2">
-                      <ArrowUp className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Completed "Investment Basics" Lesson</p>
-                      <p className="text-xs text-muted-foreground">Yesterday at 4:20 PM</p>
-                    </div>
-                    <div className="text-sm font-medium text-primary">+30 Coins</div>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-destructive/10 p-2">
-                      <ArrowDown className="h-4 w-4 text-destructive" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">Purchased "Premium Quiz Pack"</p>
-                      <p className="text-xs text-muted-foreground">Yesterday at 2:15 PM</p>
-                    </div>
-                    <div className="text-sm font-medium text-destructive">-100 Coins</div>
-                  </div>
-                </div>
+                )}
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full" disabled={transactions.length < 20}>
                   Load More
                 </Button>
               </CardFooter>
@@ -220,7 +287,7 @@ export default function WalletPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="text-sm font-medium">100 Coins</div>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" disabled={userData.coins < 100}>
                             Buy
                           </Button>
                         </div>
@@ -241,7 +308,7 @@ export default function WalletPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="text-sm font-medium">200 Coins</div>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" disabled={userData.coins < 200}>
                             Buy
                           </Button>
                         </div>
@@ -262,7 +329,7 @@ export default function WalletPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="text-sm font-medium">75 Coins</div>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" disabled={userData.coins < 75}>
                             Buy
                           </Button>
                         </div>

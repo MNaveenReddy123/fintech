@@ -1,12 +1,84 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { BarChart3, BookOpen, Gamepad2, Trophy, Wallet, TrendingUp, Calendar, Clock, Award } from "lucide-react"
+import {
+  BookOpen,
+  Gamepad2,
+  Trophy,
+  Wallet,
+  TrendingUp,
+  Calendar,
+  Clock,
+  Award,
+  Loader2,
+  AlertCircle,
+} from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { getUserActivities } from "@/actions/user-actions"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function DashboardPage() {
+  const { userData, refreshUserData } = useAuth()
+  const [activities, setActivities] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
+
+  useEffect(() => {
+    const fetchActivities = async () => {
+      if (userData) {
+        setLoading(true)
+        setError(null)
+        try {
+          const result = await getUserActivities(userData.id)
+          if (result.success) {
+            setActivities(result.data || [])
+          } else {
+            console.error("Error fetching activities:", result.error)
+            setError("Could not load activity data. Using default values.")
+          }
+        } catch (error) {
+          console.error("Error fetching activities:", error)
+          setError("An unexpected error occurred. Using default values.")
+        } finally {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchActivities()
+
+    // Try to refresh user data if needed
+    if (userData && retryCount < 3) {
+      refreshUserData().catch((err) => {
+        console.error("Error refreshing user data:", err)
+        setRetryCount((prev) => prev + 1)
+      })
+    }
+  }, [userData, refreshUserData, retryCount])
+
+  if (!userData) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const level = Math.floor(userData.xp / 100) + 1
+  const xpForNextLevel = level * 100
+  const currentLevelXp = userData.xp - (level - 1) * 100
+  const xpProgress = (currentLevelXp / 100) * 100
+
   return (
     <div className="flex flex-col">
       <div className="flex-1 space-y-4 p-8 pt-6">
@@ -15,10 +87,18 @@ export default function DashboardPage() {
           <div className="flex items-center space-x-2">
             <Button>
               <Wallet className="mr-2 h-4 w-4" />
-              <span>500 Coins</span>
+              <span>{userData.coins} Coins</span>
             </Button>
           </div>
         </div>
+
+        {error && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -33,10 +113,12 @@ export default function DashboardPage() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">Level 3</div>
-                  <p className="text-xs text-muted-foreground">Intermediate</p>
-                  <Progress value={45} className="mt-2" />
-                  <p className="mt-1 text-xs text-muted-foreground">250/500 XP to Level 4</p>
+                  <div className="text-2xl font-bold">Level {level}</div>
+                  <p className="text-xs text-muted-foreground">{userData.level}</p>
+                  <Progress value={xpProgress} className="mt-2" />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {currentLevelXp}/{100} XP to Level {level + 1}
+                  </p>
                 </CardContent>
               </Card>
               <Card>
@@ -45,28 +127,36 @@ export default function DashboardPage() {
                   <Wallet className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">500 Coins</div>
-                  <p className="text-xs text-muted-foreground">+50 earned today</p>
+                  <div className="text-2xl font-bold">{userData.coins} Coins</div>
+                  <p className="text-xs text-muted-foreground">
+                    {activities.length > 0 && activities[0]?.coins_earned
+                      ? `+${activities[0].coins_earned} earned recently`
+                      : "Start activities to earn coins"}
+                  </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Badges Earned</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total XP</CardTitle>
                   <Award className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">7</div>
-                  <p className="text-xs text-muted-foreground">Out of 25 total badges</p>
+                  <div className="text-2xl font-bold">{userData.xp}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {activities.length > 0 && activities[0]?.xp_earned
+                      ? `+${activities[0].xp_earned} earned recently`
+                      : "Complete activities to earn XP"}
+                  </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Leaderboard Rank</CardTitle>
+                  <CardTitle className="text-sm font-medium">Activities Completed</CardTitle>
                   <Trophy className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">#42</div>
-                  <p className="text-xs text-muted-foreground">Top 15% of all users</p>
+                  <div className="text-2xl font-bold">{activities.length}</div>
+                  <p className="text-xs text-muted-foreground">Keep going to improve your rank!</p>
                 </CardContent>
               </Card>
             </div>
@@ -76,38 +166,46 @@ export default function DashboardPage() {
                   <CardTitle>Recent Activity</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <div className="mr-4 rounded-full bg-primary/10 p-2">
-                        <BookOpen className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm font-medium leading-none">Completed "Budgeting Basics" Quiz</p>
-                        <p className="text-xs text-muted-foreground">Score: 8/10 • +30 XP • +20 Coins</p>
-                      </div>
-                      <div className="text-xs text-muted-foreground">2h ago</div>
+                  {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <span className="ml-2">Loading activities...</span>
                     </div>
-                    <div className="flex items-center">
-                      <div className="mr-4 rounded-full bg-primary/10 p-2">
-                        <Gamepad2 className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm font-medium leading-none">Played "Credit Score Adventure"</p>
-                        <p className="text-xs text-muted-foreground">Level 2 completed • +25 XP • +15 Coins</p>
-                      </div>
-                      <div className="text-xs text-muted-foreground">5h ago</div>
+                  ) : activities.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      No activities yet. Start playing games, taking quizzes, or trying simulations!
                     </div>
-                    <div className="flex items-center">
-                      <div className="mr-4 rounded-full bg-primary/10 p-2">
-                        <BookOpen className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm font-medium leading-none">Started "Investment Basics" Simulation</p>
-                        <p className="text-xs text-muted-foreground">In progress • 15% complete</p>
-                      </div>
-                      <div className="text-xs text-muted-foreground">Yesterday</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {activities.slice(0, 3).map((activity) => (
+                        <div key={activity.id} className="flex items-center">
+                          <div className="mr-4 rounded-full bg-primary/10 p-2">
+                            {activity.activity_type === "quiz" && <BookOpen className="h-4 w-4 text-primary" />}
+                            {activity.activity_type === "game" && <Gamepad2 className="h-4 w-4 text-primary" />}
+                            {activity.activity_type === "simulation" && <BookOpen className="h-4 w-4 text-primary" />}
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <p className="text-sm font-medium leading-none">
+                              {activity.activity_type === "quiz" && "Completed "}
+                              {activity.activity_type === "game" && "Played "}
+                              {activity.activity_type === "simulation" && "Completed "}"{activity.activity_name}"
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Score: {activity.score} • +{activity.xp_earned} XP • +{activity.coins_earned} Coins
+                            </p>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(activity.created_at).toLocaleString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
               <Card className="col-span-3">
@@ -180,7 +278,7 @@ export default function DashboardPage() {
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-medium">Budgeting Basics</h4>
-                        <Badge variant="outline">Completed</Badge>
+                        <Badge variant="outline">Available</Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">Learn to create and manage a monthly budget</p>
                       <div className="flex items-center justify-between">
@@ -189,28 +287,7 @@ export default function DashboardPage() {
                         </div>
                         <Link href="/dashboard/simulations/budgeting">
                           <Button variant="outline" size="sm">
-                            Replay
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium">Investment Basics</h4>
-                        <Badge variant="outline" className="bg-primary/10 text-primary">
-                          In Progress
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Learn how to start investing with small amounts</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" /> 20 min
-                        </div>
-                        <Link href="/dashboard/simulations/investing">
-                          <Button variant="outline" size="sm">
-                            Continue
+                            Start
                           </Button>
                         </Link>
                       </div>
@@ -229,25 +306,6 @@ export default function DashboardPage() {
                   <CardDescription>Fun financial games</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div className="rounded-lg border p-3">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium">Credit Score Adventure</h4>
-                        <Badge variant="outline">Level 2</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Navigate the world of credit scores</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Gamepad2 className="h-3 w-3" /> 5 min per level
-                        </div>
-                        <Link href="/dashboard/games/credit-score">
-                          <Button variant="outline" size="sm">
-                            Play
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
                   <div className="rounded-lg border p-3">
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
@@ -284,33 +342,14 @@ export default function DashboardPage() {
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-medium">Budgeting Basics</h4>
-                        <Badge variant="outline">8/10</Badge>
+                        <Badge variant="outline">Available</Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">Test your budgeting knowledge</p>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" /> Completed today
+                          <Calendar className="h-3 w-3" /> 5 min
                         </div>
                         <Link href="/dashboard/quizzes/budgeting">
-                          <Button variant="outline" size="sm">
-                            Retry
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium">Credit Score Quiz</h4>
-                        <Badge variant="outline">Daily</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Test your knowledge about credit scores</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" /> 5 min
-                        </div>
-                        <Link href="/dashboard/quizzes/credit-score">
                           <Button variant="outline" size="sm">
                             Take Quiz
                           </Button>
@@ -341,42 +380,38 @@ export default function DashboardPage() {
                     </div>
                     <span className="text-xs font-medium">First Login</span>
                   </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                      <BookOpen className="h-8 w-8 text-primary" />
+                  {userData.xp >= 100 && (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                        <TrendingUp className="h-8 w-8 text-primary" />
+                      </div>
+                      <span className="text-xs font-medium">Level Up</span>
                     </div>
-                    <span className="text-xs font-medium">Quiz Master</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                      <Gamepad2 className="h-8 w-8 text-primary" />
+                  )}
+                  {activities.some((a) => a.activity_type === "quiz") && (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                        <BookOpen className="h-8 w-8 text-primary" />
+                      </div>
+                      <span className="text-xs font-medium">Quiz Taker</span>
                     </div>
-                    <span className="text-xs font-medium">Game Pro</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                      <Wallet className="h-8 w-8 text-primary" />
+                  )}
+                  {activities.some((a) => a.activity_type === "game") && (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                        <Gamepad2 className="h-8 w-8 text-primary" />
+                      </div>
+                      <span className="text-xs font-medium">Game Player</span>
                     </div>
-                    <span className="text-xs font-medium">Saver</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                      <TrendingUp className="h-8 w-8 text-primary" />
+                  )}
+                  {userData.coins >= 100 && (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                        <Wallet className="h-8 w-8 text-primary" />
+                      </div>
+                      <span className="text-xs font-medium">Saver</span>
                     </div>
-                    <span className="text-xs font-medium">Investor</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-2 opacity-40">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                      <Trophy className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <span className="text-xs font-medium">Top 10</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-2 opacity-40">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                      <BarChart3 className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <span className="text-xs font-medium">Analyst</span>
-                  </div>
+                  )}
                 </div>
               </CardContent>
               <CardFooter>

@@ -47,9 +47,9 @@ export default function Home() {
                       Get Started
                     </Button>
                   </Link>
-                  <Link href="/about">
+                  <Link href="/login">
                     <Button size="lg" variant="outline" className="w-full">
-                      Learn More
+                      Login
                     </Button>
                   </Link>
                 </div>

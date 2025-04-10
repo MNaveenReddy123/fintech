@@ -1,11 +1,59 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { BookOpen, Clock, DollarSign, TrendingUp, Home, Briefcase, GraduationCap } from "lucide-react"
+import { BookOpen, Clock, DollarSign, TrendingUp, Home, Briefcase, GraduationCap, Wallet, Loader2 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { getUserActivities } from "@/actions/user-actions"
 
 export default function SimulationsPage() {
+  const { userData } = useAuth()
+  const [activities, setActivities] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchActivities = async () => {
+      if (userData) {
+        setLoading(true)
+        try {
+          const result = await getUserActivities(userData.id)
+          if (result.success) {
+            setActivities(result.data || [])
+          }
+        } catch (error) {
+          console.error("Error fetching activities:", error)
+        } finally {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchActivities()
+  }, [userData])
+
+  const getSimulationProgress = (simulationName) => {
+    if (loading) return 0
+    const simulationActivity = activities.find(
+      (a) => a.activity_type === "simulation" && a.activity_name === simulationName,
+    )
+    return simulationActivity ? 100 : 0
+  }
+
+  if (!userData) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading simulations...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col">
       <div className="flex-1 space-y-4 p-8 pt-6">
@@ -16,6 +64,10 @@ export default function SimulationsPage() {
               <Clock className="mr-2 h-4 w-4" />
               <span>History</span>
             </Button>
+            <Button>
+              <Wallet className="mr-2 h-4 w-4" />
+              <span>{userData.coins} Coins</span>
+            </Button>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -23,7 +75,9 @@ export default function SimulationsPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Budgeting Basics</CardTitle>
-                <Badge variant="outline">Completed</Badge>
+                <Badge variant="outline">
+                  {getSimulationProgress("Budgeting Basics") === 100 ? "Completed" : "Available"}
+                </Badge>
               </div>
               <CardDescription>Learn to create and manage a monthly budget</CardDescription>
             </CardHeader>
@@ -41,16 +95,16 @@ export default function SimulationsPage() {
               <div className="mt-4 space-y-2">
                 <div className="flex justify-between text-xs">
                   <span>Progress</span>
-                  <span>100%</span>
+                  <span>{getSimulationProgress("Budgeting Basics")}%</span>
                 </div>
-                <Progress value={100} />
+                <Progress value={getSimulationProgress("Budgeting Basics")} />
               </div>
             </CardContent>
             <CardFooter>
               <Link href="/dashboard/simulations/budgeting" className="w-full">
                 <Button variant="default" className="w-full">
                   <BookOpen className="mr-2 h-4 w-4" />
-                  Replay
+                  {getSimulationProgress("Budgeting Basics") === 100 ? "Replay" : "Start"}
                 </Button>
               </Link>
             </CardFooter>
@@ -60,7 +114,7 @@ export default function SimulationsPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Investment Basics</CardTitle>
                 <Badge variant="outline" className="bg-primary/10 text-primary">
-                  In Progress
+                  {getSimulationProgress("Investment Basics") > 0 ? "In Progress" : "New"}
                 </Badge>
               </div>
               <CardDescription>Learn how to start investing with small amounts</CardDescription>
@@ -187,7 +241,7 @@ export default function SimulationsPage() {
               <div className="mt-4 space-y-2">
                 <div className="flex justify-between text-xs">
                   <span>Unlocks at Level 5</span>
-                  <span>You're Level 3</span>
+                  <span>You're Level {Math.floor(userData.xp / 100) + 1}</span>
                 </div>
                 <Progress value={60} className="bg-muted" />
               </div>
