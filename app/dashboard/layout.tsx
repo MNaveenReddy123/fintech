@@ -19,7 +19,7 @@ import {
   SidebarGroupContent,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Home, BarChart3, Gamepad2, BookOpen, Trophy, Wallet, Settings, LogOut, User, Loader2 } from "lucide-react"
+import { Home, BarChart3, Gamepad2, BookOpen, Trophy, Wallet, Settings, LogOut, User, Loader2,AlignHorizontalDistributeCenter, FileQuestion } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
@@ -143,8 +143,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <Link href="/dashboard/simulations">
+                      <Link href="/dashboard/learning">
                         <BookOpen className="h-4 w-4" />
+                        <span>Learning</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <Link href="/dashboard/simulations">
+                        <AlignHorizontalDistributeCenter className="h-4 w-4" />
                         <span>Simulations</span>
                       </Link>
                     </SidebarMenuButton>
@@ -160,7 +168,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
                       <Link href="/dashboard/quizzes">
-                        <BookOpen className="h-4 w-4" />
+                        <FileQuestion className="h-4 w-4" />
                         <span>Quizzes</span>
                       </Link>
                     </SidebarMenuButton>

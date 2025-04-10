@@ -169,6 +169,80 @@ export default function GamesPage() {
               </CardFooter>
             </Card>
             <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Flip-Card Memory Game</CardTitle>
+                <Badge variant="outline">Beginner</Badge>
+              </div>
+              <CardDescription>Learn about different banking services</CardDescription>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  <span>8 min</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Landmark className="h-4 w-4" />
+                  <span>Beginner</span>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span>Progress</span>
+                  <span>Not started</span>
+                </div>
+                <Progress value={0} />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Link href="/dashboard/games/flip-card" className="w-full">
+                <Button variant="default" className="w-full">
+                  <Gamepad2 className="mr-2 h-4 w-4" />
+                  Play
+                </Button>
+              </Link>
+            </CardFooter>
+          </Card>
+       
+    <Card>
+
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">Bank Vault Dash</CardTitle>
+          <Badge variant="outline">New</Badge>
+        </div>
+        <CardDescription>Race to collect cash and dodge fees</CardDescription>
+      </CardHeader>
+      <CardContent className="pb-2">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Clock className="h-4 w-4" />
+            <span>1 min</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <DollarSign className="h-4 w-4" />
+            <span>Beginner</span>
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          <div className="flex justify-between text-xs">
+            <span>Progress</span>
+            <span>{getGameProgress("Bank Vault Dash") > 0 ? "Played" : "Not started"}</span>
+          </div>
+          <Progress value={getGameProgress("Bank Vault Dash")} />
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Link href="/dashboard/games/bank-vault-dash" className="w-full">
+          <Button variant="default" className="w-full">
+            <Gamepad2 className="mr-2 h-4 w-4" />
+            Play
+          </Button>
+        </Link>
+      </CardFooter>
+    </Card>
+            <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Stock Market Simulator</CardTitle>
