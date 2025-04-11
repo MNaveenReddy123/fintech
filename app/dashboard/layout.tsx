@@ -23,6 +23,8 @@ import { Home, BarChart3, Gamepad2, BookOpen, Trophy, Wallet, Settings, LogOut, 
 import { useAuth } from "@/contexts/auth-context"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import Chatbot from "@/app/dashboard/chatbot/page"
+
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, userData, loading, logout } = useAuth()
@@ -268,3 +270,4 @@ async function fetchUserData(uid: string) {
     return null
   }
 }
+

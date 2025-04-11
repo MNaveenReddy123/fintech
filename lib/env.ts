@@ -1,4 +1,8 @@
 // Utility function to safely access environment variables
+export const env = {
+  NEXT_PUBLIC_HF_TOKEN: process.env.NEXT_PUBLIC_HF_TOKEN || '',
+}
+
 export const getEnv = (key: string, defaultValue = ""): string => {
   const value = process.env[key]
   if (!value) {

@@ -5,9 +5,8 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
 import { checkSupabaseConfig } from "@/lib/supabase"
-
-// Add Toaster component to the layout
 import { Toaster } from "@/components/ui/toaster"
+import { Chatbot } from "@/components/ui/chatbot"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -28,7 +27,6 @@ export const metadata: Metadata = {
   generator: "v0.dev",
 }
 
-// Update the RootLayout component to include the Toaster
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -41,16 +39,10 @@ export default function RootLayout({
           <AuthProvider>
             {children}
             <Toaster />
+            <Chatbot />
           </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
   )
 }
-
-import "./globals.css"
-
-import "./globals.css"
-
-
-import './globals.css'
